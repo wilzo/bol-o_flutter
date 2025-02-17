@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "831544233967",
+    "project_id": "betif-5d8a9",
+    "storage_bucket": "betif-5d8a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:831544233967:android:f07710a720b179d4aff01a",
+        "android_client_info": {
+          "package_name": "boloes.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAF-ZvFaAXwA7GGcG9dy-8PuAbChliHFkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
