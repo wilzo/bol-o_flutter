@@ -20,18 +20,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _nameController = TextEditingController();
-  late Box _userProfileBox; // Caixa do Hive
-  bool _isHiveInitialized = false; // Flag para verificar se o Hive foi inicializado
+  late Box _userProfileBox;
+  bool _isHiveInitialized = false;
+  String? _userId; // ID do usuário logado
 
   @override
   void initState() {
     super.initState();
+    _userId = FirebaseAuth.instance.currentUser?.uid; // Obtém o ID do usuário
     _initializeHive().then((_) {
-      // Após inicializar o Hive, carrega a imagem e os dados do usuário
       final userProvider = context.read<UserProvider>();
-      userProvider.fetchUserData(); // Carrega os dados do usuário ao iniciar a tela
+      userProvider.fetchUserData();
 
-      // Carrega a imagem salva ao iniciar a tela
       _loadImage().then((image) {
         if (image != null) {
           setState(() {
@@ -42,12 +42,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     });
   }
 
-  // Método para inicializar o Hive e abrir a caixa
   Future<void> _initializeHive() async {
-    await Hive.initFlutter(); // Inicializa o Hive
-    _userProfileBox = await Hive.openBox('userProfileBox'); // Abre a caixa
+    await Hive.initFlutter();
+    _userProfileBox = await Hive.openBox('userProfileBox');
     setState(() {
-      _isHiveInitialized = true; // Marca o Hive como inicializado
+      _isHiveInitialized = true;
     });
   }
 
@@ -62,7 +61,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // Salva a imagem localmente e armazena o caminho no Hive
       final imagePath = await _saveImageLocally(_profileImage!);
       if (imagePath != null) {
-        _userProfileBox.put('profileImagePath', imagePath); // Salva o caminho no Hive
+        _userProfileBox.put('profileImagePath_$_userId', imagePath); // Salva o caminho no Hive com o ID do usuário
         final userProvider = context.read<UserProvider>();
         userProvider.updateProfileImage(imagePath); // Atualiza o caminho no provider
       }
@@ -73,7 +72,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<String?> _saveImageLocally(File image) async {
     try {
       final directory = await getApplicationDocumentsDirectory(); // Obtém o diretório de documentos
-      final imagePath = '${directory.path}/profile_image.jpg'; // Define o caminho do arquivo
+      final imagePath = '${directory.path}/profile_image_$_userId.jpg'; // Define o caminho do arquivo com o ID do usuário
       await image.copy(imagePath); // Copia a imagem para o diretório
       return imagePath;
     } catch (e) {
@@ -84,16 +83,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   // Método para carregar a imagem salva
   Future<File?> _loadImage() async {
-    if (!_isHiveInitialized) return null; // Retorna null se o Hive não estiver inicializado
+    if (!_isHiveInitialized || _userId == null) return null; // Retorna null se o Hive não estiver inicializado ou o ID do usuário for nulo
 
-    final imagePath = _userProfileBox.get('profileImagePath'); // Obtém o caminho da imagem
+    final imagePath = _userProfileBox.get('profileImagePath_$_userId'); // Obtém o caminho da imagem com o ID do usuário
     if (imagePath != null) {
       final file = File(imagePath);
       if (await file.exists()) { // Verifica se o arquivo existe
         return file;
       } else {
         print("Arquivo não encontrado: $imagePath");
-        _userProfileBox.delete('profileImagePath'); // Remove o caminho inválido do Hive
+        _userProfileBox.delete('profileImagePath_$_userId'); // Remove o caminho inválido do Hive
       }
     }
     return null;
@@ -203,10 +202,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 radius: 80,
                 backgroundImage: _profileImage != null
                     ? FileImage(_profileImage!) // Usa a imagem local
-                    : (userProvider.profileImageUrl.isNotEmpty
-                        ? NetworkImage(userProvider.profileImageUrl)
-                        : null),
-                child: _profileImage == null && userProvider.profileImageUrl.isEmpty
+                    : null,
+                child: _profileImage == null
                     ? const Icon(Icons.person, size: 80)
                     : null,
               ),

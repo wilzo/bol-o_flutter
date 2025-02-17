@@ -7,6 +7,7 @@ import 'UserProfileScreen.dart';
 import 'DefineWinnerScreen.dart';
 import 'VotePollScreen.dart';
 import '../Services/user_provider.dart';
+import 'RankingScreen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -101,7 +102,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     "Saldo do Usuário: ${userProvider.balance} IFCOINS",
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
                   Expanded(
@@ -111,19 +113,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           .orderBy('createdAt', descending: true)
                           .snapshots(),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
                         }
 
                         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(child: Text("Nenhum bolão criado ainda."));
+                          return const Center(
+                              child: Text("Nenhum bolão criado ainda."));
                         }
 
                         final polls = snapshot.data!.docs;
                         final userId = userProvider.userId;
 
-                        final myPolls = polls.where((poll) => poll['creatorId'] == userId).toList();
-                        final otherPolls = polls.where((poll) => poll['creatorId'] != userId).toList();
+                        final myPolls = polls
+                            .where((poll) => poll['creatorId'] == userId)
+                            .toList();
+                        final otherPolls = polls
+                            .where((poll) => poll['creatorId'] != userId)
+                            .toList();
 
                         return ListView(
                           children: [
@@ -132,19 +141,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 padding: EdgeInsets.symmetric(vertical: 8.0),
                                 child: Text(
                                   "Seus Bolões",
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              ...myPolls.map((poll) => _buildPollCard(poll, userId)).toList(),
+                              ...myPolls
+                                  .map((poll) => _buildPollCard(poll, userId))
+                                  .toList(),
                             ],
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8.0),
                               child: Text(
                                 "Bolões Gerais",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            ...otherPolls.map((poll) => _buildPollCard(poll, userId)).toList(),
+                            ...otherPolls
+                                .map((poll) => _buildPollCard(poll, userId))
+                                .toList(),
                           ],
                         );
                       },
@@ -164,38 +180,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
         child: const Icon(Icons.add),
       ),
+      // Barra de navegação inferior
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        currentIndex: 0, // Índice do item ativo (Perfil)
+        items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.poll),
+            icon: Icon(Icons.people),
             label: 'Bolões',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle),
+            icon: Icon(Icons.person),
             label: 'Perfil',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.star),
+            icon: Icon(Icons.leaderboard),
             label: 'Ranking',
           ),
         ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          // Navegação entre as telas
+          if (index == 1) {
+            // Navegar para a tela de Dashboard
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const UserProfileScreen()),
+            );
+          } else if (index == 2) {
+            // Navegar para a tela de Ranking
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const RankingScreen()),
+            );
+          }
+        },
       ),
     );
   }
-Widget _buildPollCard(QueryDocumentSnapshot poll, String userId) {
+
+  Widget _buildPollCard(QueryDocumentSnapshot poll, String userId) {
   final options = List<String>.from(poll['options']);
   final votes = List<int>.from(poll['votes']);
-  final odds = List<double>.from(poll['odds']);
-  final bets = List<double>.from(poll['bets']);
-  final votedUsers = List<String>.from(poll['votedUsers'] ?? []);
+  final votedUsers = List<dynamic>.from(poll['votedUsers'] ?? []);
 
   // Verifica se o usuário já apostou neste bolão
-  final userBetIndex = votedUsers.indexOf(userId);
-  final userBetAmount = userBetIndex != -1 ? bets[userBetIndex] : 0.0;
-  final userVoteIndex = userBetIndex != -1 ? votes[userBetIndex] : -1;
-  final potentialReturn = userVoteIndex != -1 ? userBetAmount * odds[userVoteIndex] : 0.0;
+  final userBet = votedUsers.isNotEmpty
+      ? votedUsers.firstWhere((vote) => vote['userId'] == userId,
+          orElse: () => -1)
+      : -1;
+  final userBetAmount =
+      userBet != -1 ? (userBet['valorApostado'] ?? 0.0) : 0.0;
+  final potentialReturn =
+      userBet != -1 ? (userBet['oddsAposta'] ?? 0.0) * userBetAmount : 0.0;
+
+  final displayReturn = potentialReturn.isNaN ? 0.0 : potentialReturn;
 
   final isCreator = poll['creatorId'] == userId;
 
@@ -219,19 +257,22 @@ Widget _buildPollCard(QueryDocumentSnapshot poll, String userId) {
           const SizedBox(height: 8),
           ...options.map((option) {
             final index = options.indexOf(option);
-            final percentage = votes.isEmpty ? 0 : (votes[index] / votes.reduce((a, b) => a + b)) * 100;
+            final percentage = votes.isEmpty
+                ? 0
+                : (votes[index] / votes.reduce((a, b) => a + b)) * 100;
             return Text("$option: ${percentage.toStringAsFixed(1)}%");
           }).toList(),
-          if (userBetIndex != -1) ...[
+          if (userBet != -1) ...[
             const SizedBox(height: 8),
             Text("Você apostou: $userBetAmount IFCOINS"),
-            Text("Retorno potencial: ${potentialReturn.toStringAsFixed(2)} IFCOINS"),
+            Text(
+                "Retorno potencial: ${displayReturn.toStringAsFixed(2)} IFCOINS"),
           ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              if (!isCreator) ...[
+              if (!isCreator && userBet == -1) ...[
                 ElevatedButton(
                   onPressed: () async {
                     bool? updated = await Navigator.push(
@@ -273,7 +314,8 @@ Widget _buildPollCard(QueryDocumentSnapshot poll, String userId) {
     ),
   );
 }
-  Future<void> _defineWinner(BuildContext context, QueryDocumentSnapshot poll) async {
+  Future<void> _defineWinner(
+      BuildContext context, QueryDocumentSnapshot poll) async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final creatorId = poll['creatorId'];
 
@@ -294,7 +336,10 @@ Widget _buildPollCard(QueryDocumentSnapshot poll, String userId) {
     );
 
     if (winnerIndex != null) {
-      await FirebaseFirestore.instance.collection('polls').doc(poll.id).delete();
+      await FirebaseFirestore.instance
+          .collection('polls')
+          .doc(poll.id)
+          .delete();
     }
   }
 }

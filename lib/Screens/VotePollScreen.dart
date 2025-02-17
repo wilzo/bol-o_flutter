@@ -41,7 +41,7 @@ class _VotePollScreenState extends State<VotePollScreen> {
           .get();
       if (pollDoc.exists) {
         final votedUsers = (pollDoc.data()?.containsKey('votedUsers') ?? false)
-            ? List<String>.from(pollDoc['votedUsers'])
+            ? List<dynamic>.from(pollDoc['votedUsers'])
             : [];
 
         if (votedUsers.contains(userId)) {
@@ -65,7 +65,7 @@ class _VotePollScreenState extends State<VotePollScreen> {
     }
   }
 
-  Future<void> _submitVote() async {
+  Future<void> _submitVote({required String vote, required double value, required double oddsselecionada}) async {
   if (_selectedOptionIndex == null || _betAmount == null || _betAmount! <= 0) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -118,7 +118,7 @@ class _VotePollScreenState extends State<VotePollScreen> {
     await FirebaseFirestore.instance.collection('polls').doc(widget.poll.id).update({
       'votes': updatedVotes,
       'bets': updatedBets,
-      'votedUsers': FieldValue.arrayUnion([userId]),
+      'votedUsers': FieldValue.arrayUnion([{'userId':userId, 'optionvoted':vote, 'valorApostado': value, 'oddsAposta': oddsselecionada} ]),
     });
 
     // Atualizar o saldo do usuário
@@ -217,7 +217,9 @@ class _VotePollScreenState extends State<VotePollScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isVoting || _hasVoted ? null : _submitVote,
+                onPressed: _isVoting || _hasVoted ? null :()=>{ 
+                  _submitVote(vote: options[_selectedOptionIndex??-1], value: _betAmount??-1, oddsselecionada: odds[_selectedOptionIndex??-1]),
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   shape: RoundedRectangleBorder(

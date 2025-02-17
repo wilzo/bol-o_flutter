@@ -7,7 +7,7 @@ class DefineWinnerScreen extends StatelessWidget {
 
   const DefineWinnerScreen({Key? key, required this.poll}) : super(key: key);
 
-  Future<void> _defineWinner(BuildContext context, int winnerIndex) async {
+  Future<void> _defineWinner(BuildContext context, String winnerIndex) async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final creatorId = poll['creatorId'];
 
@@ -24,29 +24,21 @@ class DefineWinnerScreen extends StatelessWidget {
       final options = List<String>.from(poll['options']);
       final odds = List<double>.from(poll['odds']);
 
-      if (winnerIndex < 0 || winnerIndex >= options.length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Opção vencedora inválida.")),
-        );
-        return;
-      }
-
       // Referência para a subcoleção de apostas
-      final betsRef = poll.reference.collection('bets');
-      final betsSnapshot = await betsRef.get();
+      final votes = poll['votedUsers'];
 
-      for (var betDoc in betsSnapshot.docs) {
+      for (var betDoc in votes) {
         try {
-          final betData = betDoc.data() as Map<String, dynamic>;
-          final String userId = betData['userId'];
-          final int opcaoEscolhida = betData['opcaoEscolhida'];
-          final double valorApostado = betData['valorApostado'];
+          final String userId = betDoc['userId'];
+          final String opcaoEscolhida = betDoc['optionvoted'];
+          final double valorApostado = betDoc['valorApostado'];
+          final double odd = betDoc['oddsAposta'];
 
           if (opcaoEscolhida == winnerIndex) {
-            final double odd = odds[opcaoEscolhida];
             final double retorno = valorApostado * odd;
 
-            final userDocRef = FirebaseFirestore.instance.collection('users').doc(userId);
+            final userDocRef =
+                FirebaseFirestore.instance.collection('users').doc(userId);
             final userDoc = await userDocRef.get();
 
             if (userDoc.exists) {
@@ -55,13 +47,14 @@ class DefineWinnerScreen extends StatelessWidget {
 
               await userDocRef.update({'balance': novoSaldo});
 
-              debugPrint("Saldo do usuário $userId atualizado: +$retorno (Total: $novoSaldo)");
+              debugPrint(
+                  "Saldo do usuário $userId atualizado: +$retorno (Total: $novoSaldo)");
             } else {
               debugPrint("Usuário $userId não encontrado!");
             }
           }
         } catch (e) {
-          debugPrint("Erro ao processar a aposta ${betDoc.id}: $e");
+          debugPrint("Erro ao processar a aposta ${betDoc}: $e");
         }
       }
 
@@ -70,7 +63,7 @@ class DefineWinnerScreen extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Vencedor definido: '${options[winnerIndex]}'. Bolão excluído."),
+          content: Text("Vencedor definido: '${winnerIndex}'. Bolão excluído."),
         ),
       );
       Navigator.pop(context);
@@ -87,7 +80,10 @@ class DefineWinnerScreen extends StatelessWidget {
 
     if (userId != null) {
       try {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
 
         if (userDoc.exists) {
           return (userDoc['balance'] ?? 0.0) as double;
@@ -127,13 +123,15 @@ class DefineWinnerScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Saldo Atual: $userBalance moedas',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               for (var i = 0; i < options.length; i++)
                 Card(
                   elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -144,14 +142,16 @@ class DefineWinnerScreen extends StatelessWidget {
                         showDialog(
                           context: context,
                           barrierDismissible: false,
-                          builder: (context) => const Center(child: CircularProgressIndicator()),
+                          builder: (context) =>
+                              const Center(child: CircularProgressIndicator()),
                         );
 
                         try {
-                          await _defineWinner(context, i);
+                          await _defineWinner(context, options[i]);
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Erro ao definir vencedor: $e")),
+                            SnackBar(
+                                content: Text("Erro ao definir vencedor: $e")),
                           );
                         } finally {
                           Navigator.pop(context);
